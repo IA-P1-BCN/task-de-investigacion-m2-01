@@ -483,7 +483,170 @@ uno con silueta excelente del que nadie sabe qué decir.
 
 ## 5. Los cuatro algoritmos en detalle
 
-> _Pendiente — paso 6_
+### 5.1 · K-Means
+
+`sklearn.cluster.KMeans`
+
+**Mecanismo.** Se fija de antemano el número de grupos `k`. El algoritmo sitúa `k`
+centroides iniciales (idealmente con *k-means++*, que los reparte alejados entre sí)
+y alterna dos operaciones hasta la convergencia: **asignar** cada punto al centroide
+más cercano y **recalcular** cada centroide como la media de los puntos asignados.
+El objetivo que minimiza es la inercia, la suma de distancias al cuadrado de cada
+punto a su centroide.
+
+**Ventajas**
+
+- Muy rápido y de complejidad lineal en el número de observaciones: escala a
+  millones de registros, y existe la variante *MiniBatchKMeans* para datos masivos.
+- Sencillo de entender, implementar y explicar a un público no técnico.
+- Los centroides son interpretables: cada uno es el «perfil medio» de su grupo.
+
+**Desventajas**
+
+- Exige decidir `k` antes de ejecutar.
+- No es determinista: el resultado depende de la inicialización, por lo que debe
+  repetirse varias veces (`n_init`).
+- Solo encuentra grupos **convexos y de tamaño similar**; fracasa con formas
+  alargadas o anidadas.
+- Muy sensible a valores atípicos, porque la media se desplaza hacia ellos. La
+  variante **K-Medoids** usa puntos reales en lugar de medias y es más robusta.
+- Requiere variables numéricas y escaladas.
+
+**Casos de uso.** Segmentación de clientes y análisis RFM; compresión de imágenes
+por cuantización de color; agrupación de documentos vectorizados; detección de
+patrones de consumo; preprocesado para reducir un conjunto grande a unos pocos
+prototipos.
+
+---
+
+### 5.2 · Clustering Jerárquico Aglomerativo
+
+`sklearn.cluster.AgglomerativeClustering` · dendrograma con `scipy.cluster.hierarchy`
+
+**Mecanismo.** Comienza con tantos grupos como observaciones y, en cada paso,
+fusiona los dos más próximos según un **criterio de enlace** (simple, completo,
+promedio o Ward), hasta reunirlo todo en un único grupo. El recorrido completo se
+representa en un **dendrograma**, y el número final de grupos se obtiene cortándolo
+a la altura deseada.
+
+**Ventajas**
+
+- No requiere fijar el número de grupos de antemano: se decide después, a la vista
+  del árbol.
+- Es determinista: los mismos datos producen siempre el mismo dendrograma.
+- El dendrograma aporta información sobre la **estructura anidada** —subgrupos
+  dentro de grupos— que ningún otro método ofrece, y es una herramienta de
+  comunicación muy eficaz.
+- Admite cualquier métrica de distancia, incluso datos no vectoriales para los que
+  solo se dispone de una matriz de distancias.
+
+**Desventajas**
+
+- Coste elevado: del orden de O(n²) en memoria y hasta O(n³) en tiempo, lo que lo
+  limita a unos pocos miles de observaciones.
+- **Las fusiones son irreversibles**: un error temprano se arrastra hasta el final.
+- El resultado cambia sustancialmente con el criterio de enlace elegido.
+- El enlace simple sufre el *efecto cadena*: dos grupos distintos unidos por un hilo
+  de puntos intermedios acaban fusionados.
+
+**Casos de uso.** Taxonomías biológicas y filogenética; análisis exploratorio cuando
+se desconoce el número de grupos; organización jerárquica de documentos; estudios de
+mercado con muestras reducidas; cualquier dominio en que la jerarquía sea en sí misma
+el objeto de interés.
+
+---
+
+### 5.3 · DBSCAN
+
+`sklearn.cluster.DBSCAN` · variante moderna: `sklearn.cluster.HDBSCAN`
+
+**Mecanismo.** Define los grupos como regiones densas. Con dos parámetros —`eps`, el
+radio del vecindario, y `min_samples`, el mínimo de vecinos para considerarlo denso—
+clasifica cada punto como **núcleo**, **frontera** o **ruido**, y hace crecer cada
+cluster propagándose de punto núcleo en punto núcleo mientras haya densidad
+suficiente. El número de grupos no se indica: resulta del proceso.
+
+**Ventajas**
+
+- No necesita que se especifique el número de grupos.
+- Detecta grupos de **forma arbitraria**: curvas, anillos, espirales.
+- **Identifica el ruido** en lugar de repartirlo por la fuerza, lo que lo convierte
+  también en detector de anomalías.
+- Robusto frente a valores atípicos, que no distorsionan los grupos.
+- Eficiente —O(n log n)— cuando se apoya en estructuras de indexación espacial.
+
+**Desventajas**
+
+- Muy sensible a `eps`: variaciones pequeñas alteran el resultado por completo.
+- **No maneja densidades heterogéneas**: un único radio no puede servir a un grupo
+  compacto y a otro disperso a la vez. Lo resuelven **OPTICS** y **HDBSCAN**.
+- Se degrada en espacios de alta dimensión, donde las distancias se homogeneizan.
+- Los puntos frontera son ambiguos si están al alcance de dos grupos.
+- Sus métricas internas de calidad (silueta) tienden a penalizarlo precisamente por
+  encontrar formas no esféricas.
+
+**Casos de uso.** Detección de fraude e intrusiones; análisis de datos espaciales y
+GPS —identificar zonas de concentración de actividad—; segmentación de imágenes;
+limpieza de datos previa a otro modelo; agrupación de eventos sísmicos o de
+incidencias.
+
+---
+
+### 5.4 · Gaussian Mixture Models (GMM)
+
+`sklearn.mixture.GaussianMixture`
+
+**Mecanismo.** Supone que los datos proceden de la mezcla de `k` **distribuciones
+normales (gaussianas)**, cada una con su media, su matriz de covarianza y su peso.
+Los parámetros se estiman con el algoritmo **EM** (*Expectation-Maximization*), que
+alterna dos pasos: **E**, calcular con qué probabilidad pertenece cada punto a cada
+componente, y **M**, reestimar medias, covarianzas y pesos a partir de esas
+probabilidades. El resultado no es una etiqueta, sino un **vector de probabilidades**
+por observación: es *clustering blando*.
+
+**Ventajas**
+
+- **Asignación probabilística**: en lugar de forzar una pertenencia, cuantifica la
+  incertidumbre, lo que resulta valioso cuando los grupos se solapan.
+- Los grupos pueden ser **elipses** de distinto tamaño, orientación y proporción,
+  no solo círculos; se ajusta a estructuras que K-Means parte mal.
+- Es un **modelo generativo**: permite calcular la verosimilitud de una observación
+  nueva y, por tanto, detectar anomalías, o generar datos sintéticos.
+- Dispone de criterios objetivos para elegir `k`: **BIC** y **AIC**.
+- **K-Means es un caso particular suyo**, el correspondiente a covarianzas esféricas
+  idénticas y asignación dura.
+
+**Desventajas**
+
+- Asume que los grupos son gaussianos; si la distribución real es muy distinta, el
+  ajuste es pobre.
+- Sigue exigiendo fijar `k`.
+- EM converge a un **óptimo local** y depende de la inicialización.
+- Estima muchos más parámetros que K-Means, de modo que necesita más datos y resulta
+  más lento.
+- Puede degenerar si una componente colapsa sobre unos pocos puntos (covarianza
+  singular); se controla con el parámetro de regularización `reg_covar`.
+
+**Casos de uso.** Reconocimiento de voz y de locutor —fue el modelo dominante
+durante décadas—; modelado de rendimientos financieros; segmentación de imágenes;
+detección de anomalías mediante umbral de verosimilitud; segmentación de clientes
+cuando los perfiles se solapan y conviene conservar la ambigüedad; estimación de
+densidad en general.
+
+---
+
+### Cómo elegir entre los cuatro
+
+| Situación | Algoritmo recomendado |
+|---|---|
+| Muchos datos, grupos compactos, `k` conocido o estimable | **K-Means** |
+| Pocos datos, `k` desconocido, interesa la estructura anidada | **Jerárquico** |
+| Formas irregulares, presencia de valores atípicos, `k` desconocido | **DBSCAN** |
+| Grupos solapados o elípticos, se desea una medida de incertidumbre | **GMM** |
+
+En la práctica rara vez se elige uno a ciegas: lo razonable es **ejecutar varios,
+comparar sus métricas y visualizar los resultados** antes de decidir, que es
+exactamente lo que hace la comparativa de la sección siguiente.
 
 ## 6. Comparativa práctica
 
