@@ -228,7 +228,117 @@ sugiere un buen punto de corte.
 
 ## 3. Clustering basado en densidad: DBSCAN
 
-> _Pendiente — paso 4_
+El clustering basado en densidad parte de una definición de grupo radicalmente
+distinta: **un cluster es una región del espacio densamente poblada de
+observaciones, delimitada por regiones de baja densidad**. No importa la distancia a
+un centro, sino cuántos vecinos próximos tiene cada punto.
+
+**DBSCAN** (*Density-Based Spatial Clustering of Applications with Noise*, 1996) es
+su algoritmo de referencia.
+
+### Los dos hiperparámetros
+
+| Parámetro | Qué define |
+|---|---|
+| **`eps` (ε)** | el radio del vecindario: a qué distancia máxima dos puntos se consideran vecinos |
+| **`min_samples`** (*MinPts*) | cuántos puntos debe haber dentro de ese radio para que la zona se considere densa |
+
+### Los tres tipos de punto
+
+A partir de esos dos valores, cada observación se clasifica como:
+
+- **Punto núcleo** (*core*): tiene al menos `min_samples` puntos dentro de su radio
+  `eps`. Está en el interior denso de un grupo.
+- **Punto frontera** (*border*): no alcanza ese mínimo, pero cae dentro del radio de
+  un punto núcleo. Está en el borde del grupo.
+- **Ruido** (*noise*): ni una cosa ni la otra. **No se asigna a ningún cluster** y
+  `scikit-learn` lo etiqueta con `-1`.
+
+```text
+                    ● ● ●
+                  ● ◉ ◉ ● ●          ◉  núcleo    ≥ min_samples vecinos dentro de ε
+     ✕          ● ◉ ◉ ◉ ◉ ●          ●  frontera  pocos vecinos, pero toca un núcleo
+   ruido          ● ◉ ◉ ● ●          ✕  ruido     ni lo uno ni lo otro
+                    ● ● ●
+```
+
+### Mecanismo
+
+1. Se toma un punto no visitado y se cuentan sus vecinos dentro del radio `eps`.
+2. Si no llega a `min_samples`, se marca provisionalmente como **ruido** (puede
+   rescatarse más tarde si resulta ser frontera de otro grupo).
+3. Si lo alcanza, es un **punto núcleo** y se abre un cluster nuevo con él.
+4. El cluster **se expande por contagio**: se incorporan sus vecinos, y si alguno de
+   ellos es también núcleo, se incorporan además los vecinos de este, y así
+   sucesivamente. Es la propiedad de *alcanzabilidad por densidad*, y es la que
+   permite que un grupo se extienda siguiendo una forma curva o alargada.
+5. Cuando la expansión se agota, se pasa al siguiente punto sin visitar.
+
+El número de grupos **no se decide: emerge** de la estructura de densidad de los
+datos.
+
+### En qué se diferencia de los otros dos enfoques
+
+| | Centroides (K-Means) | Jerárquico | Densidad (DBSCAN) |
+|---|---|---|---|
+| **Qué es un grupo** | puntos cercanos a un centro | puntos fusionados pronto en el árbol | región densa rodeada de vacío |
+| **Nº de grupos** | se fija antes (`k`) | se elige después, cortando | **lo decide el algoritmo** |
+| **Forma detectable** | convexa, tendente a esférica | depende del enlace; con Ward, esférica | **cualquiera**: curvas, anillos, eses |
+| **Grupos de distinto tamaño** | los iguala en extensión | tolerable | sin problema |
+| **Valores atípicos** | se asignan a la fuerza y **desplazan el centroide** | se asignan a la fuerza | **se aíslan como ruido** |
+| **Parámetros críticos** | `k`, inicialización | criterio de enlace, altura de corte | `eps`, `min_samples` |
+| **Determinismo** | no | sí | casi: solo los puntos frontera pueden variar según el orden de recorrido |
+| **Coste** | O(n·k·i·d) | hasta O(n³) | O(n log n) con indexación espacial; O(n²) sin ella |
+
+Las tres diferencias de fondo:
+
+1. **No hay que decir cuántos grupos hay.** K-Means lo exige y el jerárquico lo
+   pospone; DBSCAN lo deduce.
+2. **No asume ninguna forma.** K-Means solo puede trazar fronteras rectas alrededor
+   de centros, de modo que únicamente encuentra grupos convexos. DBSCAN sigue la
+   forma que dibujen los propios datos.
+3. **Incorpora el concepto de ruido.** Es el único de los tres que puede responder
+   *«esta observación no pertenece a ningún grupo»*, lo que lo convierte además en
+   un detector de anomalías.
+
+### Cómo se eligen `eps` y `min_samples`
+
+- **`min_samples`**: como regla práctica, al menos *número de variables + 1*, y
+  habitualmente el doble del número de variables. Valores altos producen grupos más
+  robustos y más ruido.
+- **`eps`**: mediante el **gráfico de k-distancias**. Se calcula para cada punto la
+  distancia a su k-ésimo vecino más próximo (con *k* = `min_samples`), se ordenan de
+  menor a mayor y se representan. La curva resultante presenta un codo: el valor de
+  `eps` adecuado es la altura de ese codo, el punto donde las distancias empiezan a
+  dispararse porque ya se está midiendo hacia zonas vacías.
+
+Como DBSCAN trabaja con distancias absolutas, **escalar las variables antes de
+ejecutarlo no es opcional**.
+
+### Ventajas y limitaciones
+
+**A favor:** no requiere fijar el número de grupos; detecta formas arbitrarias;
+identifica valores atípicos en lugar de dejarse arrastrar por ellos; es robusto y
+eficiente con indexación espacial.
+
+**En contra:**
+
+- **Es muy sensible a `eps`**: una variación pequeña puede fundir dos grupos en uno
+  o pulverizar uno en muchos.
+- **Falla con densidades heterogéneas.** Un único `eps` no puede servir a la vez
+  para un grupo compacto y otro disperso: o se fragmenta el disperso, o se fusiona
+  el compacto con su entorno. Es su punto débil más conocido, y lo que motivó
+  **OPTICS** y **HDBSCAN**, que manejan densidades variables.
+- **Sufre la maldición de la dimensionalidad**: en espacios de muchas variables las
+  distancias tienden a igualarse y la noción de vecindario pierde sentido. Conviene
+  reducir la dimensionalidad (PCA) antes de aplicarlo.
+- **Los puntos frontera son ambiguos**: si uno cae en el radio de dos grupos
+  distintos, acaba en el que lo alcance primero.
+
+En la [comparativa práctica](#6-comparativa-práctica) de este repositorio se observa
+el efecto con claridad: sobre un conjunto con forma de dos medias lunas entrelazadas,
+DBSCAN es el único de los cuatro algoritmos que recupera exactamente los grupos
+reales.
 
 ## 4. Elegir el número de clusters y evaluar la calidad del agrupamiento
 
