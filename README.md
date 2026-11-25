@@ -113,7 +113,118 @@ miden la *forma* de los grupos y no su *acierto*.
 
 ## 2. Clustering por centroides vs. clustering jerárquico
 
-> _Pendiente — paso 3_
+Ambos enfoques persiguen lo mismo —agrupar lo parecido— pero parten de ideas
+opuestas sobre **qué es un agrupamiento**: para el particional es un *reparto*;
+para el jerárquico, una *jerarquía de parentescos*.
+
+### El enfoque particional o basado en centroides
+
+Divide el conjunto de datos en **k grupos planos, disjuntos y al mismo nivel**: cada
+observación pertenece a uno y solo uno, y no hay relación de pertenencia entre
+grupos. El número de grupos **se fija antes de empezar**, y cada grupo queda
+representado por un **prototipo**: el centroide, es decir, el punto promedio de
+todos sus miembros (que normalmente no coincide con ninguna observación real).
+
+**Algoritmo representativo: K-Means.** Funciona por refinamiento iterativo:
+
+1. Se eligen k centroides iniciales (al azar, o mejor con la estrategia *k-means++*).
+2. **Asignación**: cada punto se adjudica al centroide más cercano.
+3. **Actualización**: cada centroide se recalcula como la media de los puntos que le
+   han correspondido.
+4. Se repiten 2 y 3 hasta que las asignaciones dejan de cambiar.
+
+Lo que K-Means minimiza en ese proceso es la **inercia** o suma de cuadrados
+intra-cluster (*WCSS*): la suma de las distancias al cuadrado de cada punto a su
+centroide.
+
+```text
+WCSS = Σ        Σ        ‖ x − μᵢ ‖²
+      i=1..k   x ∈ Cᵢ
+```
+
+Es un procedimiento **voraz y no determinista**: converge a un mínimo local que
+depende de dónde cayeron los centroides iniciales, razón por la cual en la práctica
+se ejecuta varias veces (`n_init`) y se conserva la mejor solución.
+
+### El enfoque jerárquico
+
+No produce *una* partición, sino **una jerarquía anidada de particiones**: una
+estructura de árbol en la que cada grupo contiene subgrupos, y estos a su vez otros.
+**No exige fijar k de antemano**; el número de grupos se decide al final, cortando
+el árbol a la altura que interese.
+
+Existen dos estrategias:
+
+- **Aglomerativa (*bottom-up*)**, la habitual: se parte de n grupos de un solo
+  elemento y en cada paso se fusionan los dos grupos más próximos, hasta que todo
+  queda reunido en uno.
+- **Divisiva (*top-down*)**: se parte de un único grupo con todo y se va dividiendo.
+  Es mucho más costosa y apenas se usa.
+
+**Algoritmo representativo: Clustering Jerárquico Aglomerativo.** Su parámetro clave
+no es k, sino el **criterio de enlace** (*linkage*), que define la distancia entre
+dos *grupos* a partir de las distancias entre sus puntos:
+
+| Criterio | Distancia entre dos grupos | Efecto |
+|---|---|---|
+| **Simple** (*single*) | la de sus dos puntos más cercanos | detecta formas alargadas e irregulares, pero sufre el *efecto cadena*: grupos distintos unidos por un hilo de puntos acaban fusionados |
+| **Completo** (*complete*) | la de sus dos puntos más lejanos | produce grupos compactos y de tamaño similar; sensible a valores atípicos |
+| **Promedio** (*average*) | la media de todas las distancias entre pares | solución intermedia y estable |
+| **Ward** | el incremento de varianza interna que provoca la fusión | el más usado; tiende a grupos esféricos y equilibrados, muy parecidos a los de K-Means |
+
+### El dendrograma
+
+El resultado se representa en un **dendrograma**, un árbol que se lee de abajo
+arriba. La **altura** a la que dos ramas se unen indica la distancia a la que se
+produjo esa fusión: cuanto más arriba, más diferentes eran los grupos fusionados.
+
+```text
+ distancia
+     │
+   8 ┤  ┌───────────────────────────┐
+     │  │                           │
+   5 ┤  │             ┌─────────────┴─────────────┐
+     │  │             │                           │
+ - - │- │- - - - - - -│- - - - - - - - - - - - - -│- - -   corte → 3 grupos
+   2 ┤  │       ┌─────┴─────┐               ┌─────┴─────┐
+     │  │       │           │               │           │
+   0 ┴──E───────A───────────B───────────────C───────────D
+```
+
+**El número de grupos se elige cortando el árbol con una línea horizontal**: tantas
+ramas atraviese el corte, tantos grupos resultan. En el ejemplo, el corte produce
+`{A,B}`, `{C,D}` y `{E}`; un corte más bajo daría cuatro o cinco grupos, y uno más
+alto, dos. Un salto vertical grande entre dos fusiones —como el que hay entre la
+altura 5 y la 8— es señal de que ahí había una separación real en los datos, y
+sugiere un buen punto de corte.
+
+### Comparativa directa
+
+| | Particional / centroides (K-Means) | Jerárquico (aglomerativo) |
+|---|---|---|
+| **Resultado** | una partición plana en k grupos | un árbol de particiones anidadas |
+| **¿Hay que fijar k?** | sí, antes de ejecutar | no, se decide después al cortar |
+| **Cómo representa un grupo** | por su centroide (punto promedio) | por el historial de fusiones |
+| **Parámetro crítico** | k y la inicialización | el criterio de enlace y la altura de corte |
+| **Determinismo** | no: depende de los centroides iniciales | sí: mismos datos, mismo árbol |
+| **¿Se puede corregir un error?** | sí, un punto puede cambiar de grupo en la siguiente iteración | no: una fusión es irreversible |
+| **Coste computacional** | ≈ O(n·k·i·d), lineal en el nº de datos | ≈ O(n²) de memoria y hasta O(n³) de tiempo |
+| **Escala a** | millones de observaciones | unos pocos miles |
+| **Visualización propia** | mapa de puntos y centroides | dendrograma |
+
+### Cuándo usar cada uno
+
+- **K-Means** cuando el conjunto es grande, las variables son numéricas, se espera
+  que los grupos sean compactos y aproximadamente esféricos, y existe una idea
+  razonable del valor de k.
+- **Jerárquico** cuando el conjunto es manejable, no se sabe cuántos grupos hay, o
+  cuando la propia estructura anidada es informativa —taxonomías biológicas,
+  organización de documentos, análisis exploratorio—. El dendrograma es, además, una
+  herramienta de comunicación excelente ante alguien que no es técnico.
+
+> **Lo que ambos comparten** es también su límite común: los dos tienden a producir
+> grupos de forma convexa y a repartir *todas* las observaciones, sin reconocer que
+> algunas puedan ser simple ruido. De ahí nace el enfoque de la pregunta siguiente.
 
 ## 3. Clustering basado en densidad: DBSCAN
 
