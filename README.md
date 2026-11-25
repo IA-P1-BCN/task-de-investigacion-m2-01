@@ -342,7 +342,144 @@ reales.
 
 ## 4. Elegir el número de clusters y evaluar la calidad del agrupamiento
 
-> _Pendiente — paso 5_
+### Por qué es crítico acertar
+
+El riesgo no es que el algoritmo falle: es que **nunca avisa**. Un algoritmo de
+clustering siempre devuelve un resultado, y lo devuelve con el mismo aplomo tanto si
+los grupos que ha encontrado son reales como si los ha inventado. Pedirle a K-Means
+siete grupos sobre unos datos que solo tienen tres produce siete grupos de aspecto
+perfectamente convincente.
+
+Las consecuencias de errar son asimétricas y ambas caras:
+
+- **Un `k` demasiado pequeño** funde segmentos que se comportan de forma distinta:
+  los perfiles se promedian entre sí y las conclusiones se diluyen en una media que
+  no describe a nadie.
+- **Un `k` demasiado grande** fragmenta un grupo real en subgrupos artificiales;
+  se acaban describiendo diferencias que son puro azar muestral.
+- **En DBSCAN** el problema se traslada a `eps`: un valor pequeño convierte casi
+  todo en ruido, y uno grande funde el conjunto entero en un único cluster.
+
+Y como esto no es un ejercicio abstracto, el error se traduce en decisiones: una
+segmentación de clientes mal calibrada significa campañas dirigidas a perfiles que
+no existen.
+
+### El problema de fondo
+
+Al no existir etiquetas verdaderas, **no se puede medir el acierto**. No hay un
+*accuracy* que calcular. Lo único observable es la **geometría del resultado**:
+cómo de compactos son los grupos por dentro y cómo de separados están entre sí. Toda
+la familia de métricas internas se construye sobre esas dos ideas: **cohesión** y
+**separación**.
+
+### Método 1: el método del codo (*elbow method*)
+
+Se ejecuta el algoritmo para un rango de valores de `k` y se representa la
+**inercia** (la suma de distancias al cuadrado de cada punto a su centroide) frente
+a `k`.
+
+La inercia **siempre disminuye** al aumentar `k` —con `k` igual al número de
+observaciones valdría cero, un grupo por punto—, así que no sirve buscar su mínimo.
+Lo que se busca es el **codo**: el punto a partir del cual la curva se aplana porque
+añadir grupos ya no mejora apenas nada. Ese codo marca el equilibrio entre un modelo
+simple y un modelo que explica bien los datos.
+
+Resultados reales sobre el conjunto de tres manchas de la comparativa de este
+repositorio:
+
+| k | Inercia | Reducción respecto al anterior | Silueta media |
+|---:|---:|---:|---:|
+| 1 | 600,0 | — | n/d |
+| 2 | 185,2 | 69,1 % | 0,696 |
+| **3** | **14,9** | **91,9 %** | **0,863** |
+| 4 | 12,6 | 15,4 % | 0,690 |
+| 5 | 10,4 | 17,8 % | 0,528 |
+| 6 | 8,7 | 15,9 % | 0,358 |
+
+El codo es inequívoco: pasar de 2 a 3 grupos reduce la inercia un **91,9 %**,
+mientras que pasar de 3 a 4 apenas la reduce un **15,4 %**. A partir de ahí la curva
+se aplana. La respuesta es `k = 3`, que es justamente el número de grupos con que se
+generaron los datos.
+
+**Limitación:** el codo solo resulta tan evidente cuando los grupos están bien
+separados. Con datos reales la curva suele descender de forma suave y la
+identificación del codo se vuelve subjetiva —de ahí que exista el **estadístico gap**
+(*gap statistic*), que automatiza la decisión comparando la inercia obtenida con la
+de datos aleatorios sin estructura—.
+
+### Método 2: el coeficiente de silueta (*silhouette coefficient*)
+
+Es una medida más informativa, porque evalúa **cada observación por separado**. Para
+un punto *i*:
+
+- **a(i)** = distancia media a los demás puntos **de su propio grupo** → cohesión.
+- **b(i)** = distancia media a los puntos **del grupo vecino más próximo** →
+  separación.
+
+```text
+         b(i) − a(i)
+ s(i) = ───────────────
+        max( a(i), b(i) )
+```
+
+El valor resultante se mueve entre **−1 y 1**:
+
+| s(i) | Interpretación |
+|---|---|
+| cercano a **1** | el punto está mucho más cerca de los suyos que del grupo vecino: bien asignado |
+| cercano a **0** | está justo en la frontera entre dos grupos: asignación dudosa |
+| **negativo** | está más cerca del grupo vecino que del propio: **probablemente mal asignado** |
+
+La **silueta media** de todas las observaciones resume la calidad del agrupamiento, y
+se escoge el `k` que la maximiza. Como referencia orientativa: por encima de 0,7 la
+estructura es fuerte; entre 0,5 y 0,7, razonable; entre 0,25 y 0,5, débil; por debajo
+de 0,25 no hay estructura apreciable.
+
+En la tabla anterior la silueta alcanza su máximo en **k = 3 (0,863)** y cae de
+inmediato al añadir un cuarto grupo (0,690). **Ambos métodos coinciden**, que es la
+situación ideal: cuando el codo y la silueta señalan el mismo valor, la confianza en
+la elección es alta.
+
+Su ventaja añadida es el **diagrama de silueta**, que representa el valor de cada
+punto agrupado por cluster. Permite detectar lo que una media esconde: un grupo con
+muchos valores negativos, o uno desproporcionadamente pequeño, son señales de que ese
+`k` no es el adecuado aunque el promedio parezca aceptable.
+
+### Otras métricas habituales
+
+| Métrica | Idea | Criterio |
+|---|---|---|
+| **Davies-Bouldin** | razón entre dispersión interna y separación entre grupos | cuanto **menor**, mejor |
+| **Calinski-Harabasz** | razón entre varianza inter-grupo e intra-grupo | cuanto **mayor**, mejor |
+| **BIC / AIC** | verosimilitud penalizada por complejidad | específicas de GMM; cuanto **menor**, mejor |
+| **Gráfico de k-distancias** | distancia al k-ésimo vecino, ordenada | para fijar `eps` en DBSCAN |
+
+### La advertencia importante: las métricas internas tienen sesgo de forma
+
+Codo y silueta se calculan a partir de distancias a centros y entre grupos, de modo
+que **premian implícitamente los grupos compactos y esféricos**. Cuando los grupos
+reales tienen otra forma, la métrica engaña. Resultados medidos sobre el conjunto de
+dos medias lunas entrelazadas de este repositorio:
+
+| Algoritmo | Acierto real (ARI) | Silueta media |
+|---|---:|---:|
+| K-Means | 0,48 | **0,50** |
+| Jerárquico (Ward) | 0,43 | 0,43 |
+| **DBSCAN** | **1,00** | 0,38 |
+| GMM | 0,49 | **0,50** |
+
+**DBSCAN recupera los grupos verdaderos con exactitud perfecta y, sin embargo,
+obtiene la peor silueta de los cuatro.** La métrica no mide si el agrupamiento es
+correcto —no puede saberlo—, mide si *parece* un agrupamiento clásico de grupos
+redondos. El ARI de la primera columna solo puede calcularse aquí porque son datos
+sintéticos de los que conocemos la verdad; en un caso real esa columna no existiría.
+
+La conclusión práctica: **las métricas internas orientan, no deciden**. Un buen
+procedimiento combina varias de ellas, las contrasta con la visualización de los
+datos y, sobre todo, somete el resultado a la prueba definitiva: **¿los grupos
+obtenidos significan algo para quien conoce el negocio?** Un agrupamiento con una
+silueta mediocre pero que identifica segmentos de cliente accionables vale más que
+uno con silueta excelente del que nadie sabe qué decir.
 
 ## 5. Los cuatro algoritmos en detalle
 
