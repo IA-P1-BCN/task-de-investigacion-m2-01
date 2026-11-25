@@ -32,7 +32,84 @@ juguete, para contrastar la teoría con resultados reales.
 
 ## 1. ¿Qué es el aprendizaje no supervisado y qué es un algoritmo de clustering?
 
-> _Pendiente — paso 2_
+El **aprendizaje no supervisado** es la rama del *machine learning* que trabaja con
+datos **sin etiquetar**: el conjunto de entrenamiento contiene únicamente las
+variables de entrada (`X`), sin una respuesta correcta (`y`) asociada a cada
+observación. El algoritmo no aprende a predecir un valor conocido, sino a
+**descubrir la estructura que ya existe en los datos**.
+
+Dentro de esta familia conviven varias tareas —reducción de dimensionalidad (PCA),
+reglas de asociación, detección de anomalías, estimación de densidad— y entre ellas
+la más representativa: el clustering.
+
+### Qué es un algoritmo de clustering
+
+Un **algoritmo de clustering** reparte las observaciones en grupos (*clusters*) de
+forma que los elementos de un mismo grupo se parezcan mucho entre sí y se
+diferencien de los de los demás grupos. Es la traducción algorítmica de una idea
+muy intuitiva: *«junta lo que se parece, separa lo que no»*.
+
+Ese «parecerse» no es una opinión, sino una **medida de distancia** calculada sobre
+las variables:
+
+- **Distancia euclídea**: la línea recta entre dos puntos. Es la opción por defecto
+  y la que usan K-Means o DBSCAN.
+- **Distancia de Manhattan**: la suma de las diferencias en cada variable; más
+  robusta frente a valores extremos.
+- **Similitud del coseno**: mide el ángulo en lugar de la separación; es la
+  habitual con texto, donde importa la proporción de palabras y no su cantidad.
+
+Como todas estas medidas suman magnitudes distintas, **escalar los datos
+(estandarizarlos) antes de agrupar es prácticamente obligatorio**: si una variable
+va en euros (0–50.000) y otra en años (18–80), la primera dominará la distancia y
+el agrupamiento acabará reflejando solo el sueldo.
+
+### Diferencias con el aprendizaje supervisado
+
+| | Aprendizaje supervisado | Aprendizaje no supervisado |
+|---|---|---|
+| **Datos de entrada** | `X` + etiquetas `y` | solo `X` |
+| **Objetivo** | predecir `y` para observaciones nuevas | descubrir la estructura oculta |
+| **Quién define las categorías** | un humano, al etiquetar los datos | el propio algoritmo: son el resultado |
+| **Ejemplo de tarea** | clasificar un correo como spam / no spam | segmentar clientes en perfiles de compra |
+| **Cómo se evalúa** | comparando predicción y verdad conocida: *accuracy*, F1, RMSE | con métricas internas de cohesión y separación: silueta, inercia |
+| **Coste de preparar los datos** | alto: etiquetar a mano es caro y lento | bajo: se aprovechan los datos tal y como están |
+| **Algoritmos típicos** | regresión logística, árboles de decisión, SVM, redes neuronales | K-Means, clustering jerárquico, DBSCAN, GMM, PCA |
+
+La diferencia de fondo es **quién define las categorías**. En el aprendizaje
+supervisado vienen dadas de antemano por alguien que etiquetó los datos; en el no
+supervisado **las categorías son el resultado, no el punto de partida**.
+
+Entre ambos extremos existe el **aprendizaje semi-supervisado**, que combina unos
+pocos datos etiquetados con una gran masa de datos sin etiquetar: el escenario más
+frecuente en proyectos reales, donde etiquetar a mano resulta caro.
+
+### Una consecuencia importante: no hay una única respuesta correcta
+
+Al no existir una verdad de referencia, **ningún agrupamiento es «el correcto»**.
+Los mismos clientes agrupados por edad producen unos grupos, y agrupados por gasto
+mensual, otros completamente distintos; ambos resultados son matemáticamente
+válidos. Por eso el resultado de un clustering no es una conclusión cerrada sino
+**una hipótesis que debe validarse con conocimiento del dominio**, y por eso las
+métricas de calidad (ver [pregunta 4](#4-elegir-el-número-de-clusters-y-evaluar-la-calidad-del-agrupamiento))
+miden la *forma* de los grupos y no su *acierto*.
+
+### Propósito y aplicaciones reales
+
+- **Explorar** un dataset del que aún no se sabe nada y obtener una primera
+  descripción de su estructura.
+- **Segmentar clientes** para campañas de marketing diferenciadas (el clásico
+  análisis RFM: recencia, frecuencia e importe de compra).
+- **Detectar anomalías**: lo que no encaja en ningún grupo suele ser lo valioso
+  —fraude con tarjetas, intrusiones en una red, fallos en una cadena de montaje—.
+- **Agrupar documentos o noticias** por tema sin haber definido antes las categorías.
+- **Comprimir información**: reducir los millones de colores de una imagen a los 16
+  más representativos, o resumir miles de observaciones en unos pocos perfiles.
+- **Investigación biomédica**: identificar tipos celulares o subtipos de una
+  enfermedad a partir de datos de expresión génica.
+- **Preparar el terreno para un modelo supervisado**: el cluster asignado puede
+  usarse como una variable adicional, o servir de guía para etiquetar a mano solo
+  una muestra representativa.
 
 ## 2. Clustering por centroides vs. clustering jerárquico
 
