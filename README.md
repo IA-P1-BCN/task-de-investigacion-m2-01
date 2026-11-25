@@ -650,7 +650,101 @@ exactamente lo que hace la comparativa de la sección siguiente.
 
 ## 6. Comparativa práctica
 
-> _Pendiente — pasos extra_
+Todas las cifras citadas en las respuestas anteriores proceden de este experimento,
+y puede reproducirse por completo:
+
+```bash
+pip install -r requirements.txt
+python src/comparativa_clustering.py
+```
+
+El script genera las tres figuras de esta sección e imprime las tablas de métricas.
+La semilla aleatoria está fijada (`random_state=42`), de modo que los resultados son
+idénticos en cada ejecución.
+
+**Los datos** son dos conjuntos sintéticos de 300 observaciones y dos variables,
+elegidos por tener formas opuestas: tres **manchas redondas** bien separadas y dos
+**medias lunas entrelazadas**. Ambos se estandarizan antes de agrupar.
+
+### Los cuatro algoritmos sobre las dos formas
+
+![Comparativa de K-Means, jerárquico, DBSCAN y GMM sobre dos conjuntos de datos](img/comparativa_algoritmos.png)
+
+**Fila superior — las manchas redondas.** Los cuatro algoritmos devuelven
+**exactamente la misma partición**: la coincidencia entre cada par de ellos es de
+1,00, y DBSCAN no marca ni un solo punto como ruido. Cuando los grupos son compactos,
+están separados y tienen tamaños parecidos, la elección del algoritmo es
+intrascendente: todos encuentran lo mismo y lo sensato es quedarse con el más rápido
+y simple, que es K-Means.
+
+**Fila inferior — las lunas entrelazadas.** Aquí se separan las filosofías. K-Means,
+el jerárquico y GMM trazan una frontera que **corta las dos lunas por la mitad**:
+ninguno de los tres puede hacerlo mejor, porque los tres buscan grupos convexos y una
+media luna no lo es. DBSCAN, que solo sigue el rastro de la densidad, recupera las
+dos lunas **exactamente**.
+
+### Elegir el número de grupos
+
+![Método del codo y coeficiente de silueta frente al número de grupos](img/metodo_codo.png)
+
+Ambos métodos, aplicados al conjunto de manchas, señalan el mismo valor. La inercia
+se desploma hasta `k = 3` y a partir de ahí la curva se aplana —el **codo**—,
+mientras que la silueta alcanza en `k = 3` su máximo (0,86) y cae en cuanto se añade
+un cuarto grupo. Que dos criterios independientes coincidan es la mejor señal
+disponible de que la elección es correcta; y en este caso puede comprobarse, porque
+los datos se generaron efectivamente con tres centros.
+
+### El árbol de fusiones
+
+![Dendrograma del clustering jerárquico con el corte en tres grupos](img/dendrograma.png)
+
+Dendrograma del clustering jerárquico sobre una muestra de 30 observaciones de las
+manchas, reducida para que las hojas resulten legibles. Se aprecia con claridad la
+idea de la sección 2: las fusiones dentro de cada grupo ocurren todas por debajo de
+la altura 1 —son puntos casi idénticos—, y después hay un **salto vertical enorme**
+hasta las alturas 5,6 y 9,3, que es donde el algoritmo se ve obligado a unir grupos
+que no se parecen. Ese hueco vacío es la firma de una estructura real en los datos, y
+cualquier corte dentro de él produce los mismos tres grupos.
+
+### Hasta qué punto importa un hiperparámetro
+
+Para medir la sensibilidad de DBSCAN a `eps` que se describía en la pregunta 3, basta
+repetir el agrupamiento de las lunas variando únicamente ese valor:
+
+| `eps` | Grupos encontrados | Puntos marcados como ruido | Acierto (ARI) |
+|---:|---:|---:|---:|
+| 0,10 | 21 | 160 | 0,04 |
+| 0,15 | 16 | 26 | 0,30 |
+| 0,20 | 3 | 5 | 0,80 |
+| **0,30** | **2** | **0** | **1,00** |
+| 0,40 | 2 | 0 | 1,00 |
+| 0,50 | 2 | 0 | 1,00 |
+| 0,60 | 1 | 0 | 0,00 |
+
+El algoritmo es el mismo y los datos también: lo único que cambia es el radio de
+vecindad. Con `eps = 0,10` el conjunto queda **pulverizado en 21 grupos** y más de la
+mitad de las observaciones se descartan como ruido; con `eps = 0,60` las dos lunas se
+**funden en un único grupo** y el acierto cae a cero. Entre ambos extremos existe una
+ventana —aproximadamente de 0,25 a 0,55— en la que el resultado es perfecto.
+
+Es la demostración de que **un hiperparámetro mal elegido no degrada el resultado: lo
+destruye**, y de que en ningún caso el algoritmo advierte de ello. Las tres salidas
+son igual de plausibles vistas desde dentro.
+
+### Qué se aprende de la comparativa
+
+1. **Con datos fáciles, el algoritmo da igual.** Los cuatro coinciden punto por punto
+   en las manchas. La discusión sobre qué algoritmo es mejor solo tiene sentido
+   cuando los datos son difíciles.
+2. **La forma de los grupos decide el algoritmo, no la moda.** Tres de los cuatro
+   fracasan con las lunas, y no por estar mal configurados: su definición misma de
+   «grupo» se lo impide.
+3. **La métrica puede contradecir al acierto.** DBSCAN obtiene la peor silueta
+   justamente en el caso en que es el único que acierta. Una métrica interna mide
+   *forma*, no *verdad*.
+4. **Los hiperparámetros pesan tanto como el algoritmo.** El mismo DBSCAN que acierta
+   al 100 % con `eps = 0,30` encuentra 21 grupos con `eps = 0,10` y uno solo con
+   `eps = 0,60`. Elegir el algoritmo es apenas la mitad del trabajo.
 
 ## 7. Referencias
 
