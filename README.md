@@ -748,4 +748,127 @@ son igual de plausibles vistas desde dentro.
 
 ## 7. Referencias
 
-> _Pendiente — paso 7_
+Las fuentes están separadas en tres bloques, porque no cumplen la misma función:
+los **artículos originales** son el lugar donde cada algoritmo se publicó por primera
+vez y donde están sus garantías y sus límites; la **documentación oficial** es lo que
+se consultó para escribir el código de la sección 6; y los **libros** son el material
+de apoyo que ordena la teoría. Todos los enlaces se comprobaron el 26 de noviembre
+de 2026.
+
+### 7.1 · Artículos originales
+
+- **MacQueen, J. (1967).** *Some Methods for Classification and Analysis of
+  Multivariate Observations.* Proceedings of the 5th Berkeley Symposium on
+  Mathematical Statistics and Probability, vol. 1, pp. 281–297. University of
+  California Press. — [Project Euclid](https://projecteuclid.org/euclid.bsmsp/1200512992)
+
+  Es el texto que bautiza el procedimiento como *k-means*. Útil para ver que el
+  algoritmo nació como una técnica de clasificación estadística, no de *machine
+  learning*.
+
+- **Lloyd, S. P. (1982).** *Least Squares Quantization in PCM.* IEEE Transactions on
+  Information Theory, 28(2), pp. 129–137. —
+  [DOI: 10.1109/TIT.1982.1056489](https://doi.org/10.1109/TIT.1982.1056489)
+
+  Describe el bucle «asignar al centroide más cercano → recalcular centroides» que
+  es el K-Means que se implementa hoy (sección 5.1). Lo escribió en Bell Labs en
+  1957, pero no se publicó hasta 1982: de ahí que el algoritmo tenga dos padres.
+
+- **Ward, J. H. (1963).** *Hierarchical Grouping to Optimize an Objective Function.*
+  Journal of the American Statistical Association, 58(301), pp. 236–244. —
+  [DOI: 10.1080/01621459.1963.10500845](https://doi.org/10.1080/01621459.1963.10500845)
+
+  Origen del criterio de enlace de Ward, que es el que usa `AgglomerativeClustering`
+  por defecto y el que genera el dendrograma de la sección 6.
+
+- **Dempster, A. P., Laird, N. M. y Rubin, D. B. (1977).** *Maximum Likelihood from
+  Incomplete Data via the EM Algorithm.* Journal of the Royal Statistical Society,
+  Series B, 39(1), pp. 1–38. — [JSTOR](https://www.jstor.org/stable/2984875)
+
+  El algoritmo Expectation-Maximization que ajusta los GMM (sección 5.4). Explica
+  por qué un GMM asigna probabilidades y no etiquetas duras: las pertenencias son
+  precisamente los «datos incompletos» del título.
+
+- **Ester, M., Kriegel, H.-P., Sander, J. y Xu, X. (1996).** *A Density-Based
+  Algorithm for Discovering Clusters in Large Spatial Databases with Noise.*
+  Proceedings of the 2nd International Conference on Knowledge Discovery and Data
+  Mining (KDD-96), pp. 226–231. —
+  [PDF oficial (AAAI)](https://cdn.aaai.org/KDD/1996/KDD96-037.pdf)
+
+  El artículo de DBSCAN. Aquí están las definiciones exactas de punto núcleo, punto
+  frontera y ruido que se resumen en la sección 3.
+
+- **Schubert, E., Sander, J., Ester, M., Kriegel, H.-P. y Xu, X. (2017).** *DBSCAN
+  Revisited, Revisited: Why and How You Should (Still) Use DBSCAN.* ACM Transactions
+  on Database Systems, 42(3), artículo 19, pp. 1–21. —
+  [DOI: 10.1145/3068335](https://doi.org/10.1145/3068335)
+
+  Los propios autores, 21 años después, con recomendaciones prácticas para elegir
+  `eps` y `min_samples`. Es la fuente de los criterios de la sección 3 y de la
+  advertencia sobre lo sensible que es `eps`, que la sección 6 confirma.
+
+- **Rousseeuw, P. J. (1987).** *Silhouettes: a Graphical Aid to the Interpretation
+  and Validation of Cluster Analysis.* Journal of Computational and Applied
+  Mathematics, 20, pp. 53–65. —
+  [DOI: 10.1016/0377-0427(87)90125-7](https://doi.org/10.1016/0377-0427%2887%2990125-7)
+
+  Define el coeficiente de silueta de la sección 4. Conviene leerlo para entender
+  que la silueta mide *cohesión frente a separación*, que no es lo mismo que medir
+  si el agrupamiento es correcto.
+
+### 7.2 · Documentación oficial
+
+- **scikit-learn — [2.3. Clustering](https://scikit-learn.org/stable/modules/clustering.html)**
+  (guía de usuario). La referencia principal de las secciones 2 a 5: tabla
+  comparativa de todos los algoritmos, parámetros, escalabilidad y geometría de
+  cada uno.
+- **scikit-learn — [Clustering performance evaluation](https://scikit-learn.org/stable/modules/clustering.html#clustering-performance-evaluation).**
+  Métricas internas y externas de la sección 4 (silueta, Calinski-Harabasz,
+  Davies-Bouldin, ARI) con sus fórmulas y sus sesgos documentados.
+- **scikit-learn — [2.1. Gaussian mixture models](https://scikit-learn.org/stable/modules/mixture.html).**
+  Base de la sección 5.4: tipos de matriz de covarianza y uso de AIC/BIC para
+  elegir el número de componentes.
+- **scikit-learn — [Comparing different clustering algorithms on toy datasets](https://scikit-learn.org/stable/auto_examples/cluster/plot_cluster_comparison.html).**
+  El ejemplo oficial que inspiró el diseño de la comparativa de la sección 6
+  (lunas frente a manchas).
+- **scikit-learn — [Demonstration of k-means assumptions](https://scikit-learn.org/stable/auto_examples/cluster/plot_kmeans_assumptions.html).**
+  Muestra visualmente en qué casos K-Means falla por construcción, no por mala
+  configuración.
+- **scikit-learn — [Selecting the number of clusters with silhouette analysis on KMeans clustering](https://scikit-learn.org/stable/auto_examples/cluster/plot_kmeans_silhouette_analysis.html).**
+  Procedimiento para combinar el método del codo con la silueta (sección 4).
+- **scikit-learn — API:**
+  [`sklearn.cluster.DBSCAN`](https://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html)
+  y [`sklearn.metrics.silhouette_score`](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.silhouette_score.html).
+- **SciPy — [`scipy.cluster.hierarchy.linkage`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.hierarchy.linkage.html)
+  y [`scipy.cluster.hierarchy.dendrogram`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.cluster.hierarchy.dendrogram.html).**
+  Las dos funciones con las que `src/comparativa_clustering.py` dibuja el
+  dendrograma, porque scikit-learn no lo trae de serie.
+- **Pedregosa, F. et al. (2011).** *Scikit-learn: Machine Learning in Python.*
+  Journal of Machine Learning Research, 12, pp. 2825–2830. —
+  [JMLR](https://jmlr.org/papers/v12/pedregosa11a.html)
+
+  El artículo de referencia de la librería con la que está hecha la sección 6.
+
+### 7.3 · Libros y material de apoyo
+
+- **Géron, A. (2022).** *Hands-On Machine Learning with Scikit-Learn, Keras &
+  TensorFlow* (3.ª ed.). O'Reilly. Capítulo 9, «Unsupervised Learning Techniques». —
+  [Notebooks oficiales del libro](https://github.com/ageron/handson-ml3)
+
+  El tratamiento más práctico de los cuatro algoritmos, con el código al lado de la
+  explicación. Es la fuente más cercana al nivel de esta investigación.
+
+- **Hastie, T., Tibshirani, R. y Friedman, J. (2009).** *The Elements of Statistical
+  Learning* (2.ª ed.). Springer. Sección 14.3, «Cluster Analysis». —
+  [PDF gratuito de los autores](https://hastie.su.domains/ElemStatLearn/)
+
+  El tratamiento estadístico formal: por qué K-Means minimiza la inercia, qué
+  significa realmente la distancia elegida y de dónde viene el método del codo.
+
+- **Bishop, C. M. (2006).** *Pattern Recognition and Machine Learning.* Springer.
+  Capítulo 9, «Mixture Models and EM». —
+  [PDF gratuito (Microsoft Research)](https://www.microsoft.com/en-us/research/publication/pattern-recognition-machine-learning/)
+
+  La derivación paso a paso que conecta K-Means con los GMM: K-Means resulta ser el
+  caso límite de un GMM con covarianzas esféricas e iguales. Es la base de la
+  comparación entre las secciones 5.1 y 5.4.
